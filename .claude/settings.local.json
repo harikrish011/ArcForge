@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(npx bmad-method install --directory . --modules bmm --tools claude-code --yes)"
+    ]
+  }
+}
