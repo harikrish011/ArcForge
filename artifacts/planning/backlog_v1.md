@@ -33,7 +33,7 @@ Turns the Active Location into a classified, browsable result set (list + map), 
 Lets the user confirm a spot and get moving toward it. Traces to PRD §5.3 (FR-7, FR-8), realizes UJ-1, UJ-2.
 
 ### Epic D — Search Refinement (Nice-to-Have)
-Client-side narrowing of already-visible results. Traces to PRD §5.4 (FR-9, FR-10), realizes UJ-1. Explicitly the first and second items cut under time pressure per PRD §7.2.
+Client-side narrowing of already-visible results. Traces to PRD §5.4 (FR-9, FR-10). `[RESOLVED — corrected]` FR-10 realizes UJ-1; FR-9 does not realize either named journey per the PRD's own text ("not exercised by either named journey") — D1 is a general capability, not tied to a specific persona. Explicitly the first and second items cut under time pressure per PRD §7.2.
 
 ---
 
@@ -204,4 +204,4 @@ Design artifact used: `artifacts/design/design_v1.md` (`status: APPROVED`), 6 sc
 
 Not resolved at Gate 2 (carried forward, still open — see Feasibility Flags): the accessibility/safety best-effort framing, and A2's curated-list-vs-free-text assumption.
 
-This artifact is **DRAFT**, all five originally-open items now decided. Awaiting explicit human approval before Architecture work begins.
+This artifact is **APPROVED** (see frontmatter). All five originally-open items were decided before approval.
