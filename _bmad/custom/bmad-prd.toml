@@ -1,0 +1,6 @@
+[workflow]
+prd_template = "{project-root}/_bmad/custom/bmad-prd-prd-template.md"
+
+persistent_facts = [
+  "PRD Discipline override: assumptions and open ambiguities are never left as narrative prose or scattered inline-only — every one is captured as a discrete item in the dedicated \"Assumptions & Ambiguities\" section (per the customized prd_template) with an explicit confidence: high | medium | low tag. This section is mandatory structure for every PRD, not an optional Adapt-In cluster.",
+]
