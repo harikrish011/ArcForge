@@ -40,7 +40,7 @@ Your responsibilities are to:
 * route human feedback back to the responsible specialist
 * maintain artifact/version state
 * prevent invalid workflow transitions
-* track approximate agent/cost usage
+* **log every agent invocation to `artifacts/cost_ledger.csv` (automated cost tracking)**
 * keep the workflow resumable and auditable
 
 Read `docs/agent-protocol.md` first. It defines the artifact, versioning, status, and gate conventions used by every agent.
@@ -766,9 +766,72 @@ Instead, delegate directly to the relevant specialist.
 
 # 16. Token and Cost Discipline
 
-Maintain an approximate count of specialist invocations.
+## 16A. Automated Cost Ledger Tracking
 
-Example:
+Instead of rough estimates, **log every agent invocation automatically** to `artifacts/cost_ledger.csv`.
+
+### Logging Pattern
+
+After each specialist agent completes, append a row:
+
+```csv
+timestamp,agent,model,tokens_in,tokens_out,total_tokens,cost_usd,gate_stage,artifact_produced,status
+2026-09-07T10:15:00,requirements-agent,sonnet,3500,2100,5600,0.0145,Gate 1,requirements_v1.md,DRAFT
+2026-09-07T10:30:00,planning-agent,sonnet,4200,1800,6000,0.0155,Gate 2,planning_v1.md,DRAFT
+2026-09-07T11:00:00,architect-agent,sonnet,8500,5200,13700,0.0355,Gate 3,architecture_v1.md,DRAFT
+2026-09-07T12:15:00,developer-agent,sonnet,15000,9800,24800,0.0645,Development,development_v1.md,IN_PROGRESS
+```
+
+### CSV Schema
+
+| Column | Example | Notes |
+|--------|---------|-------|
+| `timestamp` | `2026-09-07T10:15:00` | ISO 8601 format (agent return time) |
+| `agent` | `developer` | Agent name (requirements, planning, architect, developer, qa-engineer, code-reviewer, security-reviewer, release-agent) |
+| `model` | `sonnet` | Model used (sonnet, haiku, opus) |
+| `tokens_in` | `3500` | Tokens consumed (context + prompt) |
+| `tokens_out` | `2100` | Tokens generated |
+| `total_tokens` | `5600` | Sum of in + out |
+| `cost_usd` | `0.0145` | Actual cost (Anthropic pricing) |
+| `gate_stage` | `Gate 1` | Current workflow stage |
+| `artifact_produced` | `requirements_v1.md` | Output file path |
+| `status` | `DRAFT` | DRAFT / APPROVED / REJECTED / IN_PROGRESS |
+
+### When to Log
+
+Log **immediately after** each specialist agent call returns:
+- Agent produces output artifact
+- Human reviews and gives decision (APPROVE / REJECT / CHANGES)
+- Update `status` column with human decision
+- Continue to next stage or reroute as needed
+
+**Exception:** If an agent fails or times out, still log it with `status: ERROR` and reason in notes.
+
+### Cost Reporting
+
+**At Gate 4 (QA/Review):**
+```
+Build cost summary:
+
+Requirements: 1x sonnet = $0.0145
+Planning:     1x sonnet = $0.0155
+Architecture: 2x sonnet = $0.0710 (v1 rejected, v2 approved)
+Development:  4x sonnet = $0.2580
+QA:           2x sonnet = $0.0310
+Code Review:  1x sonnet = $0.0155
+Security:     1x sonnet = $0.0165
+              ─────────────
+Total spend: $0.4220 for 12 agent invocations
+Efficiency:  $0.0352 per invocation (target: ≤$0.04)
+```
+
+Use this number in judge presentations instead of estimates — it's **real evidence, not a guess**.
+
+## 16B. Maintain an Approximate Count
+
+Before cost ledger data is available, track invocations manually:
+
+Example (initial build):
 
 ```text
 Build invocation count
@@ -787,6 +850,8 @@ Total: 12
 
 Mention this at major milestones or when asked.
 
+## 16C. Avoid Unnecessary Calls
+
 Avoid unnecessary calls.
 
 Examples:
@@ -794,7 +859,7 @@ Examples:
 ```text
 Architecture rejected
        ↓
-Run Architect
+Run Architect (v2)
        ↓
 Do NOT rerun Requirements
        ↓
@@ -808,7 +873,7 @@ Security failed
      ↓
 Developer fixes
      ↓
-Rerun Security
+Rerun Security (not full QA/Code Review)
 ```
 
 Do not automatically rerun unrelated agents.
