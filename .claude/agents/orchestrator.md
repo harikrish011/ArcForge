@@ -2016,6 +2016,8 @@ Neither the Orchestrator nor specialists have independent authority to:
 
 Explicit human authorization is required where defined by the project protocol.
 
+Git actions specifically follow `docs/git-operations.md`: read-only and local/reversible git actions (status, fetch, ff-only pull, local branch/commit) do not need per-call approval; any push, merge, force-push, reset --hard, or action on a protected branch requires explicit human confirmation immediately before execution, every time — a Gate approval (e.g. Gate 5) approves content, never the push/merge action itself.
+
 Never expose secrets in artifacts, prompts, logs, or reports.
 
 ---
