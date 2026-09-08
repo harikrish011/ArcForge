@@ -128,7 +128,7 @@ Release
    Gate 5
 ```
 
-> `QA + Code Review + Security` and `Gate 4` in this diagram represent the release-scope aggregate view of the pipeline. Actual execution proceeds through the per-work-item validation cycle (Sections 8, 9, 9A); Gate 4 itself is the project/release-level decision point defined in Section 9B, reached once all required work items complete, not after each item's own quality stage.
+> `QA + Code Review + Security` and `Gate 4` in this diagram represent the release-scope aggregate view of the pipeline. Actual execution proceeds through the per-work-item validation cycle (Sections 8, 9, 9A); Gate 4 itself is the project/release-level decision point defined in Section 9B, reached once all required work items complete, not after each item's own quality stage. Which work items make up that release scope, and how a human explicitly initiates release, is defined in Section 9C — a human must select and initiate a Release Scope before Gate 4 applies to it, and the full application backlog is never required to be complete first.
 
 ## Gate 1 — Requirements
 
@@ -618,7 +618,7 @@ After the explicitly requested Epic, Story, Task, or execution stage reaches its
 6. stop execution; and
 7. await human direction.
 
-The Orchestrator must not automatically select another work item. The human may then select another specific work item, request a batch, switch to AUTONOMOUS, ask for project status (Section 21/21A), or stop the workflow.
+The Orchestrator must not automatically select another work item. The human may then select another specific work item, request a batch, switch to AUTONOMOUS, ask for project status (Section 21/21A), stop the workflow, **or initiate release of the just-completed work item** (Section 9C). Completing the work item makes it eligible for release consideration — it does not itself start the release process.
 
 ## BATCH mode
 
@@ -654,10 +654,11 @@ Current Architecture:
 <approved architecture version>
 
 Next Action:
-Awaiting human direction.
+Awaiting human direction (continue, select work, pause, or initiate
+release of the completed scope — Section 9C).
 ```
 
-After a batch completes, the human may execute the next batch, define a new batch size or scope, select a specific work item, switch to AUTONOMOUS, review project status, or stop the workflow.
+After a batch completes, the human may execute the next batch, define a new batch size or scope, select a specific work item, switch to AUTONOMOUS, review project status, stop the workflow, **or initiate release of the completed batch, or of a subset of its eligible completed items** (Section 9C). Batch completion makes its items eligible for release consideration — it does not itself start the release process.
 
 ## AUTONOMOUS mode
 
@@ -686,6 +687,8 @@ The Orchestrator must stop AUTONOMOUS execution when:
 None of these stopping conditions are new obligations — each already exists elsewhere in the workflow (as cross-referenced). AUTONOMOUS mode does not relax any of them; it only means the Orchestrator does not wait for a human prompt between items when none of these conditions apply.
 
 Whenever AUTONOMOUS execution stops, set the active Execution Session's `status` accordingly (Section 6D): `BLOCKED` for a blocked item or exceeded iteration limit requiring resolution, `INTERRUPTED` for a human interruption, `COMPLETED` when scope is exhausted or all items complete, and leave it `ACTIVE` only while continuing.
+
+Reaching a stopping condition — including scope exhaustion or all items completing — never itself invokes `release-agent` or otherwise starts the release process. The Orchestrator reports the stop and the completed scope; the human may then explicitly initiate release of some or all of the completed work (Section 9C), select more work, or leave the session as stopped. AUTONOMOUS mode has no standing authority to release unless such authority is explicitly granted elsewhere in the project's protocol.
 
 ---
 
@@ -1272,7 +1275,7 @@ Never let `DEV → REVIEW → DEV → REVIEW → …` continue unbounded.
 
 Section 8/9/9A validation (Development → Code Review → QA → Security → `COMPLETED`) is **work-item validation**. It resolves per Story/Task and never itself requires a human gate decision beyond the existing iteration-limit and BLOCKED escalations (Section 9A).
 
-**Gate 4 is a project- or release-scope decision point, not a per-item gate.** Gate 4 must not automatically occur after every individual Story/Task completes. It occurs once, after all required executable work items within the current release scope have reached their valid terminal state (or an explicitly human-authorized exception/descope), as an aggregate checkpoint before Release (Section 10).
+**Gate 4 is a project- or release-scope decision point, not a per-item gate.** Gate 4 must not automatically occur after every individual Story/Task completes. It occurs once — after the human has explicitly initiated release and selected a Release Scope (Section 9C) — for all required executable work items within that selected scope that have reached their valid terminal state (or an explicitly human-authorized exception/descope), as an aggregate checkpoint before Release (Section 10). "The current release scope" in this section always means the Release Scope explicitly selected per Section 9C, never an implicit "everything completed so far."
 
 ```text
 STORY/TASK
@@ -1281,13 +1284,17 @@ Development
     ↓
 Required Validation (code_review, qa, security — Section 9A)
     ↓
-COMPLETED
+COMPLETED (eligible for release consideration — not yet released)
     ↓
 Next executable item
     ↓
 ...
     ↓
-All required items within release scope COMPLETED
+Human explicitly initiates release and selects a Release Scope (Section 9C)
+    ↓
+Release Scope validated as coherent (Section 9C)
+    ↓
+All required items within the selected Release Scope COMPLETED
     ↓
 Aggregate Project/Release Validation Summary
     ↓
@@ -1323,7 +1330,178 @@ This preserves the existing human approval boundary (Section 18) — the Orchest
 
 Section 22's Completion Contract (`Gate 4 = APPROVED`) and Section 10's Release prerequisite refer to this project/release-level Gate 4, not to any per-item validation outcome.
 
-For a SELECTIVE or BATCH run scoped to less than the full release (Section 6A), Gate 4 does not apply until the human is actually working toward Release (Section 10) — a single completed Story does not, on its own, trigger Gate 4.
+For a SELECTIVE or BATCH run scoped to less than the full release (Section 6A), Gate 4 does not apply until the human explicitly initiates release and selects a Release Scope (Section 9C) — a single completed Story, or a completed batch, does not, on its own, trigger Gate 4, and it is never required to grow into the full application backlog before Gate 4 can apply to it.
+
+---
+
+# 9C. Release Scope Selection and Release Initiation
+
+This section defines the gap Sections 9B/10 assume but never made explicit: **how a human actually initiates release, and how the scope to be released is selected.** It does not change Gate 4's authority (Section 9B), the Release Agent's responsibilities, or the release authorization model (Section 10) — it defines the human-controlled on-ramp into them.
+
+## Execution Completion vs. Release Readiness
+
+These are two different questions and must not be conflated:
+
+```text
+Execution Completion  → "Has this work item / Execution Session finished?"
+                         Answered by Section 9A (work item) and Section 6B
+                         (session/batch/autonomous run).
+
+Release Readiness     → "Is the selected Release Scope eligible to enter
+                         the release process?"
+                         Answered by this section, and only for a scope
+                         the human has explicitly chosen to release.
+```
+
+A work item, batch, or session reaching completion answers only the first question. It never, by itself, answers the second. Conversely, the full application backlog reaching completion is not required to answer the second question either — a small, explicitly selected, fully-validated scope can be release-ready long before the rest of the backlog exists.
+
+> Completion makes work eligible for release consideration. Explicit release initiation, Release Scope selection, and release readiness validation are what determine whether it actually proceeds toward Gate 4 and the Release Agent.
+
+## Release Scope
+
+A **Release Scope** is the set of completed, validated work items the human has explicitly chosen to progress through release readiness checks and, if authorized, to `release-agent`. A Release Scope may be as small as one Task or as large as the full application — its size never determines whether release is allowed; only the completion and validation status of the items inside it does.
+
+## Where release initiation fits
+
+Release initiation is an explicit human option exposed at the same points Section 6B already stops for human direction — it is not a new stopping point, only a new option at existing ones:
+
+```text
+Execution Session / Work Scope Completed
+                ↓
+        Progress Report (Section 6B / 21 / 21A)
+                ↓
+        Human Next Action
+                │
+      ┌─────────┼──────────┬───────────────┐
+      │         │          │               │
+      ▼         ▼          ▼               ▼
+ Continue    Select      Pause       Initiate Release
+ Execution   Work                          │
+                                            ▼
+                                 Release Scope Selection
+                                            ↓
+                                 Release Readiness Check
+                                            ↓
+                                        Gate 4
+                                            ↓
+                                    Release Agent
+```
+
+This applies identically after a single work item completes (SELECTIVE), a batch completes (BATCH), and wherever AUTONOMOUS execution stops (Section 6B) — see each mode's post-completion list, which now names "initiate release" explicitly. Release is never entered automatically from any of these; see "Human control" below.
+
+## Release Scope selection
+
+When the human says "initiate release" (or names a release target directly, e.g. "release STORY-002", "release the last batch", "release EPIC-A", "cut version 1.2"), the Orchestrator requests or determines the Release Scope from these options, whichever apply to the project:
+
+```text
+RELEASE SCOPE OPTIONS
+
+1. Single completed Task
+2. Single completed Story
+3. Single completed Epic
+4. Most recently completed Batch
+5. Multiple explicitly selected completed work items
+6. Defined milestone/version scope, if available
+7. Full application/release scope
+```
+
+If the human already named the target unambiguously (e.g. "release STORY-002"), skip re-asking and resolve the scope directly against the tracker (Section 12A). If the request is ambiguous ("initiate release" with nothing else in flight), present the options above, scoped to what is actually available (don't offer "Epic" if no Epic exists, don't offer "Batch" if no batch has completed).
+
+### Scope coherence validation
+
+Before treating a requested Release Scope as valid, the Orchestrator validates it against the tracker (Section 12A) and existing rules already defined elsewhere in this document — it does not invent new restrictions:
+
+```text
+- every named work item exists in the tracker (Section 12A)
+- every named item has reached a valid terminal COMPLETED state (Section 9A)
+- no named item is currently in active execution (Section 6D active_items)
+- no required dependency of a named item is outside the scope and
+  incomplete (Section 13A) — unless the human explicitly accepts a
+  documented exception
+- no named item has a validation dimension currently PENDING, FAILED,
+  or INVALIDATED (Section 9A)
+- an Epic named as scope resolves to its required child work items
+  (Section 2B) — an Epic whose derived status is not COMPLETED cannot
+  be selected as-is; report which children are incomplete instead
+```
+
+If the scope fails coherence validation, report exactly what fails and do not proceed — this mirrors the existing rejection discipline in Sections 14 and 17A's intermediate-stage prerequisite checks.
+
+## Release Readiness validation
+
+A coherent Release Scope is not automatically release-ready. Before Gate 4, run the same Aggregate Validation Summary already defined in Section 9B, scoped strictly to the selected Release Scope's work items — this reuses that mechanism rather than duplicating it:
+
+```text
+Human selects Release Scope
+            ↓
+Orchestrator validates scope coherence (above)
+            ↓
+Release Readiness Assessment (Section 9B's Aggregate Validation
+Summary, applied to the selected scope only)
+            │
+      ┌─────┴─────┐
+      │           │
+   NOT READY     READY
+      │           │
+      ▼           ▼
+ Report gaps    Gate 4 (Section 9B)
+      │           │
+      │      Human Decision
+      │           │
+      │      ┌────┴────┐
+      │      │         │
+      │   REJECT    APPROVE
+      │      │         │
+      │      ▼         ▼
+      │   Return    Release Agent (Section 10)
+      │   to work
+      │
+      └── No release progression — scope stays where it is;
+          the human may resume work on it or re-attempt release
+          later once gaps are closed.
+```
+
+A work item being marked `COMPLETED` does not by itself satisfy this aggregate check — Section 9A's per-item completion and Section 9B/9C's release-scope readiness remain distinct checks, and both must pass. Nothing here bypasses or duplicates Gate 4 or the release authorization model in Section 10; this section only decides what enters that existing process and when.
+
+## Human control
+
+The following never automatically trigger `release-agent` or advance a scope past this section on their own:
+
+```text
+completing one Task
+completing one Story
+completing one Epic
+completing a Batch
+completing an Execution Session
+AUTONOMOUS mode reaching a stopping condition
+```
+
+Release progression requires, in order: explicit human release initiation, an explicitly selected Release Scope, successful Release Readiness validation, and Gate 4 approval (Section 9B) — the existing human approval boundary (Section 18) applies to all of it. AUTONOMOUS mode carries no standing authority to initiate or approve release unless a project explicitly grants that authority elsewhere in its own protocol; absent that, treat AUTONOMOUS as having no more release authority than SELECTIVE or BATCH.
+
+## Persistence
+
+Persist the selected Release Scope alongside the Execution Session (Section 6D) in the same tracker file (`artifacts/tracker/work_items.md`, Section 12A), as a `release_scope` block:
+
+```yaml
+release_scope:
+  release_scope_id: RS-<unique-id>
+  scope_type: TASK | STORY | EPIC | BATCH | EXPLICIT_ITEMS | MILESTONE | FULL_RELEASE
+  selected_work_items: [STORY-002, STORY-003]
+  selection_timestamp: <timestamp>
+  selection_source: <human request text or reference>
+  readiness_status: NOT_ASSESSED | NOT_READY | READY
+  validation_summary_reference: <path/ref to the Section 9B summary>
+  gate4_status: PENDING | APPROVED | CHANGES_REQUESTED | REJECTED
+  release_status: NOT_STARTED | IN_PROGRESS | RELEASED | ABORTED
+```
+
+This is deliberately minimal — it does not introduce a new state machine beyond what's needed to answer, if the process is interrupted: what was selected, what readiness checks ran, what remains pending, whether Gate 4 was reached, and whether release proceeded. A `release_scope` record is created when release is initiated, updated as it progresses through readiness validation and Gate 4, and left in place (not deleted) once `release_status` reaches `RELEASED` or `ABORTED`, so it remains part of the audit trail (Section 13). A new release initiation always creates a new `release_scope_id` — it never overwrites a prior completed or aborted record.
+
+On resume (Section 17A), a `release_scope` record with `readiness_status`, `gate4_status`, or `release_status` not yet finalized is an in-progress release process: report its current state and resume from there rather than re-prompting scope selection from scratch.
+
+## Applies uniformly regardless of scope size
+
+The same mechanism above — initiate, select scope, validate coherence, validate readiness, Gate 4, Release Agent — is the only release workflow. It does not vary by whether the Release Scope is a single Task, a single Story, a single Epic, a Batch, an explicit multi-item selection, a milestone, or the full application. Only the contents of `selected_work_items` change; there is no separate "small scope" or "large scope" release path.
 
 ---
 
@@ -1339,17 +1517,20 @@ when:
 Gate 4 = APPROVED
 ```
 
-Gate 4 here is the project/release-level gate defined in Section 9B — reached after the aggregate validation summary across all required work items, not after a single item's per-item validation (Section 9A).
+Gate 4 here is the project/release-level gate defined in Section 9B — reached after the aggregate validation summary across all required work items in the selected Release Scope, not after a single item's per-item validation (Section 9A). The scope being released is always the Release Scope explicitly selected and validated per Section 9C — never an implicit "everything completed so far."
 
 Provide:
 
-* approved implementation state
+* the approved Release Scope record (Section 9C) — the definitive list of work items in scope
+* approved implementation state for those work items
 * QA result
 * code-review result
 * security-review result
 * approved architecture
 * release requirements
 * relevant deployment/infrastructure context
+
+Scope the Release Agent's work strictly to the work items listed in the approved Release Scope. Do not let it implicitly expand release to include other completed-but-unselected work items, and do not withhold release of an eligible scope merely because unrelated work elsewhere in the backlog remains incomplete.
 
 The Release Agent prepares the release/deployment artifact.
 
@@ -1360,6 +1541,8 @@ Stop at:
 Only an explicit human approval authorizes release.
 
 The Orchestrator itself never decides that a release is safe.
+
+On Gate 5's outcome, update the Release Scope record's (Section 9C) `release_status` — `RELEASED` on approval and completed release, `ABORTED` if the human rejects release at Gate 5 — so the audit trail and any later resume reflect the final outcome.
 
 ---
 
@@ -1476,6 +1659,8 @@ execution_session:
 ```
 
 Update it whenever the human changes Execution Mode (Section 6C), a BATCH/SELECTIVE scope completes (Section 6B), or an item transitions (Section 9A) — see Section 6D for the full schema and rules. If a simpler tracker predates this structure and only carries a single `Execution Mode: ...` line, treat that as the backward-compatibility case below and upgrade it to the structured block at the next update rather than maintaining two formats in parallel.
+
+This same file also carries a `release_scope` block once release has been initiated at least once (Section 9C) — the definitive record of what was selected for release, its readiness/Gate 4/release status, and the basis for resuming an interrupted release process. It is independent of the `execution_session` block: an Execution Session tracks in-progress work-item execution, while `release_scope` tracks a separately-initiated release process over already-completed work.
 
 If this file does not exist yet, initialize it from the latest `APPROVED` stories/backlog artifact (e.g. `artifacts/stories/stories_v<N>.md`, falling back to `artifacts/planning/backlog_v<N>.md`) before first work-item execution: one row per Epic and per Story/Task found there, `status: NOT_STARTED` (or `READY` if it has no unresolved dependency), `depends_on` copied from that artifact's dependency notes. Never invent a work item that isn't traceable to an approved backlog/story artifact.
 
@@ -1838,6 +2023,16 @@ and EPIC-B" / "Execute the next 5 eligible items"
 "Continue" / "keep going" / "proceed autonomously"
      → AUTONOMOUS (Section 6A): select and run eligible items per approved
        priority/dependencies until a Section 6B stopping condition.
+
+"Initiate release" / "Release STORY-002" / "Release EPIC-A" / "Release the
+last batch" / "Cut version 1.2"
+     → Release initiation (Section 9C): determine or request the Release
+       Scope, validate its coherence, run Release Readiness validation,
+       and proceed to Gate 4 / the Release Agent (Section 10) only if
+       readiness passes and the human approves. This is a separate,
+       explicitly human-initiated path — it does not select or continue
+       Execution Mode work-item selection (Section 6A), and no execution
+       completion above ever triggers it on its own.
 ```
 
 Use the project's existing conversational routing (no new command syntax is introduced) — match the named work item against the tracker (Section 12A).
@@ -1921,6 +2116,7 @@ Important rules:
 * Do not resume an `INTERRUPTED` or `BLOCKED` session's active item directly into `COMPLETED` — the resume validation in Section 6D's session lifecycle (checkpoint/tracker consistency check) must run first, even if the tracker's last recorded state looked complete.
 * Do not assume validations remain valid if rework occurred before the interruption — apply the Targeted Revalidation Principle (Section 9) rather than trusting the last recorded `PASSED` values at face value.
 * If persisted state conflicts (e.g. the session lists an active item the tracker shows as `COMPLETED`, or vice versa), stop and request human resolution rather than guessing which is correct.
+* If a `release_scope` record (Section 9C) exists with `readiness_status`, `gate4_status`, or `release_status` not yet finalized, treat that as an in-progress release process: report its selected scope and current status, and resume from there rather than re-prompting Release Scope selection from scratch.
 
 ## Intermediate-stage prerequisite validation
 
@@ -1952,6 +2148,8 @@ SECURITY
   - no unresolved CHANGES_REQUESTED sits against the current code
 
 RELEASE
+  - a Release Scope has been explicitly initiated and selected (Section 9C)
+  - the Release Scope passed coherence and readiness validation (Section 9C)
   - Section 10's existing prerequisites (Gate 4 = APPROVED) — unchanged
 ```
 
@@ -2147,7 +2345,7 @@ Agent Invocations:
 8
 ```
 
-Include the active Execution Mode and Execution Session id/status (Sections 6A, 6D) whenever work-item execution is in use — omit both only for runs that have not yet reached the Section 6A decision point.
+Include the active Execution Mode and Execution Session id/status (Sections 6A, 6D) whenever work-item execution is in use — omit both only for runs that have not yet reached the Section 6A decision point. Include the Release Scope id/status (Section 9C) whenever a release has been initiated, in progress or otherwise unresolved — omit it when no release has been initiated.
 
 Keep state factual and artifact-backed.
 
@@ -2198,7 +2396,7 @@ Release        = COMPLETE
 Gate 5         = APPROVED
 ```
 
-`Gate 4` here is the project/release-level gate (Section 9B), reached via the aggregate validation summary — not the per-item validation outcome of any single Story/Task (Section 9A). If any condition is missing, do not report the build as complete.
+`Gate 4` here is the project/release-level gate (Section 9B), reached via the aggregate validation summary applied to the Release Scope explicitly initiated and selected per Section 9C — not the per-item validation outcome of any single Story/Task (Section 9A). If any condition is missing, do not report the build as complete.
 
 For a work-item-scoped run (Section 2B/17A), the equivalent completion condition is that the selected work item's tracker status (Section 12A) is `COMPLETED` per the Completion Rule (Section 9A: Development complete and all required validations PASSED/NOT_REQUIRED). This does not imply the whole-project contract above is satisfied, and it is not Gate 4 — report only the specific work item as complete, not the build as a whole.
 
