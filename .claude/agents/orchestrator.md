@@ -107,7 +107,7 @@ Requirements
      │
    Gate 1
      │
-Planning
+Planning (+ Test Case Preparation — Section 3B)
      │
    Gate 2
      │
@@ -121,6 +121,8 @@ Rolling Review
      │
 QA + Code Review + Security
      │
+Pre-Release Assurance (Design + Security Checklist — Section 9D)
+     │
    Gate 4
      │
 Release
@@ -128,7 +130,7 @@ Release
    Gate 5
 ```
 
-> `QA + Code Review + Security` and `Gate 4` in this diagram represent the release-scope aggregate view of the pipeline. Actual execution proceeds through the per-work-item validation cycle (Sections 8, 9, 9A); Gate 4 itself is the project/release-level decision point defined in Section 9B, reached once all required work items complete, not after each item's own quality stage. Which work items make up that release scope, and how a human explicitly initiates release, is defined in Section 9C — a human must select and initiate a Release Scope before Gate 4 applies to it, and the full application backlog is never required to be complete first.
+> `QA + Code Review + Security` and `Gate 4` in this diagram represent the release-scope aggregate view of the pipeline. Actual execution proceeds through the per-work-item validation cycle (Sections 8, 9, 9A); Gate 4 itself is the project/release-level decision point defined in Section 9B, reached once all required work items complete, not after each item's own quality stage. Which work items make up that release scope, and how a human explicitly initiates release, is defined in Section 9C — a human must select and initiate a Release Scope before Gate 4 applies to it, and the full application backlog is never required to be complete first. `Pre-Release Assurance` is likewise a release-scope aggregate activity, not a per-item one — it runs once per selected Release Scope, after Release Readiness validation and before Gate 4 (Section 9D). Similarly, `Planning (+ Test Case Preparation — Section 3B)` reflects that Test Case Preparation is part of the Planning stage, not a separate stage — its output joins the Planning Agent's output as one Planning Package reviewed at Gate 2 (Section 3B).
 
 ## Gate 1 — Requirements
 
@@ -302,6 +304,8 @@ Provide:
 
 The Planning Agent produces the planning/backlog artifact.
 
+Once the planning/backlog artifact is drafted, Test Case Preparation (Section 3B) runs as part of this same Planning stage before Gate 2 is presented — see Section 3B for when it applies and what it produces. Gate 2 reviews the resulting Planning Package (Section 3B), not the planning/backlog artifact in isolation.
+
 Stop for:
 
 **Human Gate 2**
@@ -345,6 +349,69 @@ any wireframes the human supplies
 Output: `artifacts/design/design_v<N>.md` (and, once approved, `artifacts/design/prototype_v<N>.html`). Do not treat this artifact as `APPROVED` until `web-design-agent` itself reports the human's explicit approval (its Step 6/7).
 
 A design artifact is never a gate prerequisite for Architecture (Section 4) — it is optional context Architecture may consume if available and `APPROVED`. Skipping this stage entirely is valid; do not stall Planning or Architecture waiting on it unless the human explicitly asked for it and hasn't yet responded.
+
+---
+
+# 3B. Test Case Preparation (Planning Stage) — Gate 2 Prerequisite
+
+Delegate to:
+
+`testcase-preparation`
+
+This is a Planning-stage specialist activity, not a separate SDLC stage. Its output joins the Planning Agent's planning/backlog artifact (Section 3) to form the **Planning Package** that Gate 2 reviews together.
+
+## When to invoke
+
+Invoke `testcase-preparation` once the Planning Agent (Section 3) has produced its planning/backlog artifact for this pass (containing the stories and acceptance criteria the test cases trace to). Do not invoke it before that output exists.
+
+Do not present Gate 2 without Test Case Preparation having run for an applicable pass — this activity is required by default for any pass that introduces or changes testable behavior (NEW_PROJECT, FEATURE, and any REFACTOR/BUG_FIX/REVIEW_FIX that changes acceptance criteria). If the human explicitly waives it for a given pass (e.g. a documentation-only or non-functional change with no new testable behavior), record that decision in the tracker/Planning Package instead of silently skipping it.
+
+Provide it with only:
+
+```text
+approved requirements/PRD (Gate 1)
+Planning Agent's stories/acceptance criteria output (Section 3) —
+  artifacts/planning/backlog_v<N>.md and/or artifacts/stories/stories_v<N>.md,
+  whichever this pass produced
+approved design artifact (Section 3A), if available
+approved architecture artifact, if available (ordinarily not yet available
+  this early in the pipeline — this is expected, not a gap for the
+  Orchestrator to fill; the agent handles absent dependency context on its
+  own terms, per its own definition)
+```
+
+## Output
+
+`artifacts/qa/testcase_coverage_v<N>.md`, following the same artifact/version/status discipline as every other stage (Section 12).
+
+## Planning Package completion
+
+Planning is not ready for Gate 2 until both halves of the Planning Package exist at the state being presented for review:
+
+```text
+Planning Agent  → Planning Artifact (Section 3)
+       +
+Test Case Preparation → Test Case Artifact (this section)
+       =
+Planning Package
+       ↓
+     Gate 2
+```
+
+## Gate 2 decision and feedback routing
+
+Gate 2 remains the single existing human decision point (APPROVE / REQUEST CHANGES / REJECT, Section 3) — this does not introduce a new gate. Route the human's feedback to whichever half of the Planning Package it targets, per the existing rejection discipline (Section 14):
+
+```text
+feedback on stories / backlog / priority / dependencies → planning-agent (Section 3)
+feedback on test coverage / gaps / traceability         → testcase-preparation (this section)
+```
+
+If feedback touches both, route each concern to its own agent — never have one agent revise the other's artifact.
+
+## Boundaries
+
+The Orchestrator does not define how `testcase-preparation` structures test cases, derives coverage, or resolves gaps — that is owned entirely by its own agent definition. The Orchestrator's responsibility ends at: invoking it at the right point, providing the right upstream context, and treating its output as part of the Planning Package above. How `qa-engineer` later consumes this artifact (Section 8) is likewise owned by the QA Agent's own definition, not defined here.
 
 ---
 
@@ -1296,18 +1363,26 @@ Release Scope validated as coherent (Section 9C)
     ↓
 All required items within the selected Release Scope COMPLETED
     ↓
-Aggregate Project/Release Validation Summary
+Release Readiness validated (Section 9C)
+    ↓
+Pre-Release Assurance (Section 9D) — Design Checklist + Security Checklist,
+where applicable
+    ↓
+Aggregate Project/Release Validation Summary (Release Evidence Package)
     ↓
 GATE 4
     ↓
 Release workflow (Section 10)
 ```
 
-## Aggregate Validation Summary
+## Aggregate Validation Summary — the Release Evidence Package
 
-Before presenting Gate 4 to the human, compile a summary drawn from the Work Item Tracker (Section 12A) and cost ledger (Section 16A), covering:
+Before presenting Gate 4 to the human, compile a summary — the **Release Evidence Package** — drawn from the Work Item Tracker (Section 12A), cost ledger (Section 16A), and, where applicable, the Pre-Release Assurance reports (Section 9D):
 
 ```text
+RELEASE EVIDENCE PACKAGE
+
+Existing Evidence:
 - completed scope (which work items, which release/Epic they belong to)
 - validation outcomes (code_review/qa/security status per item)
 - unresolved risks
@@ -1316,9 +1391,15 @@ Before presenting Gate 4 to the human, compile a summary drawn from the Work Ite
 - architecture deviations (any Section 7A escalations and their resolution)
 - security findings (outstanding or accepted, from security-reviewer reports)
 - QA status (aggregate pass/fail across in-scope items)
+
+Pre-Release Assurance (Section 9D), where applicable to this Release Scope:
+- Design Checklist report (or NOT_APPLICABLE, with the reason)
+- Security Checklist report (or NOT_APPLICABLE, with the reason)
 ```
 
-Gate 4 is reached only after this summary is presented and the human explicitly decides:
+These Pre-Release Assurance reports are additional evidence for the human — they never automatically approve or reject a release, and they never substitute for the existing Security Review or QA validation already required by Section 9A.
+
+Gate 4 is reached only after this package is presented and the human explicitly decides:
 
 ```text
 APPROVE
@@ -1444,7 +1525,11 @@ Summary, applied to the selected scope only)
    NOT READY     READY
       │           │
       ▼           ▼
- Report gaps    Gate 4 (Section 9B)
+ Report gaps    Pre-Release Assurance (Section 9D)
+      │           │
+      │      Assurance Complete / Status Recorded
+      │           │
+      │      Gate 4 (Section 9B)
       │           │
       │      Human Decision
       │           │
@@ -1461,7 +1546,7 @@ Summary, applied to the selected scope only)
           later once gaps are closed.
 ```
 
-A work item being marked `COMPLETED` does not by itself satisfy this aggregate check — Section 9A's per-item completion and Section 9B/9C's release-scope readiness remain distinct checks, and both must pass. Nothing here bypasses or duplicates Gate 4 or the release authorization model in Section 10; this section only decides what enters that existing process and when.
+A work item being marked `COMPLETED` does not by itself satisfy this aggregate check — Section 9A's per-item completion and Section 9B/9C's release-scope readiness remain distinct checks, and both must pass. Pre-Release Assurance (Section 9D) is a further, distinct check that runs after readiness and before Gate 4 — it does not merge into, replace, or shortcut Release Readiness validation above. Nothing here bypasses or duplicates Gate 4 or the release authorization model in Section 10; this section only decides what enters that existing process and when.
 
 ## Human control
 
@@ -1502,6 +1587,140 @@ On resume (Section 17A), a `release_scope` record with `readiness_status`, `gate
 ## Applies uniformly regardless of scope size
 
 The same mechanism above — initiate, select scope, validate coherence, validate readiness, Gate 4, Release Agent — is the only release workflow. It does not vary by whether the Release Scope is a single Task, a single Story, a single Epic, a Batch, an explicit multi-item selection, a milestone, or the full application. Only the contents of `selected_work_items` change; there is no separate "small scope" or "large scope" release path.
+
+---
+
+# 9D. Pre-Release Assurance
+
+**Pre-Release Assurance** is an additional release-scope stage that runs after Release Readiness validation (Section 9C) reaches `READY` and before Gate 4 (Section 9B). It does not replace, weaken, duplicate, or bypass Release Readiness validation or any work-item Quality Stage validation (Sections 8, 9, 9A) — those remain exactly as they are. Its sole purpose is to produce additional assurance evidence for the human's Gate 4 release decision (Section 9B's Release Evidence Package); it never itself approves, rejects, or authorizes anything — Gate 4 remains a human decision.
+
+```text
+Release Scope Selected (Section 9C)
+        ↓
+Release Readiness Validation = READY (Section 9C)
+        ↓
+PRE-RELEASE ASSURANCE
+        │
+   ┌────┴────┐
+   │         │
+   ▼         ▼
+ Design    Security
+ Checklist Checklist
+   │         │
+   ▼         ▼
+ Design    Security
+ Report    Report
+   │         │
+   └────┬────┘
+        ↓
+Assurance Complete / Status Recorded
+        ↓
+Gate 4 (Section 9B) — Release Evidence Package
+```
+
+## Applicability
+
+Determine, per Release Scope, whether each checklist activity applies. Neither is unconditional:
+
+* **Design Checklist** — applicable where the selected Release Scope includes UI/design-facing work with an approved design artifact (Section 3A) to check it against.
+* **Security Checklist** — applicable where the selected Release Scope touches auth, sessions, user data, file upload, external APIs, or another security-relevant surface (the same scope judgment already applied for Security Review, Section 8).
+
+Both agents already run their own internal scope/applicability judgment (`design-checklist` asks the human directly whether a run is needed and at what depth; `security-checklist` reads the requirements/architecture for applicable objective categories). The Orchestrator does not duplicate or second-guess that internal judgment — it only decides whether to invoke each agent at all for this Release Scope. Where applicability is genuinely unclear from available workflow information (e.g. no design artifact exists at all, or the scope's security relevance is ambiguous), ask the human rather than assume either way, consistent with the project's existing human-decision-point pattern (Sections 6, 7A, 9C).
+
+## Design Checklist Agent
+
+Delegate to: `design-checklist`, when applicable (above).
+
+Provide only:
+
+```text
+approved design artifact (artifacts/design/design_v<N>.md, Section 3A),
+  if one exists
+approved stories/acceptance criteria for the work items in the selected
+  Release Scope
+```
+
+Output: `artifacts/qa/design_checklist_v<N>.md` (Design Report). Reference it in the Release Scope record (Section 9C, persistence below) as part of this Release Scope's evidence.
+
+## Security Checklist Agent
+
+Delegate to: `security-checklist`, when applicable (above).
+
+Provide only:
+
+```text
+approved requirements/stories for the work items in the selected Release Scope
+approved architecture artifact, if one exists
+```
+
+Output: `artifacts/qa/security_checklist_v<N>.md` (Security Report). Reference it in the Release Scope record (Section 9C, persistence below) as part of this Release Scope's evidence.
+
+This is an additional Pre-Release Assurance activity, distinct from the existing Security Review (`security-reviewer`, Sections 8/9/9A). It never replaces, weakens, or bypasses Security Review's required validation — Section 9A's `validations.security = PASSED` requirement for a work item's `COMPLETED` state is entirely unaffected by whether or when the Security Checklist runs.
+
+## Parallel execution
+
+Design Checklist and Security Checklist have no dependency on each other: both depend only on already-`APPROVED` upstream artifacts and the selected Release Scope, never on each other's output or report. Consistent with the Execution Concurrency Policy (Section 6E) — which fixes sequential execution as the default specifically for work-item execution — the Orchestrator may run these two independently of one another rather than gating one on the other's completion. This is not a new concurrency framework; it only recognizes that neither activity depends on the other, so one is never blocked waiting on the other before it can start, complete, or be reported.
+
+## Completion and issue handling
+
+Issues or incomplete activities are handled through the existing mechanisms already defined elsewhere in this document — no separate remediation workflow is introduced:
+
+```text
+Pre-Release Assurance
+        │
+   ┌────┴──────────────┐
+   │                    │
+Complete              Incomplete / Issue
+(reports produced,     (an agent could not run, a report is
+or NOT_APPLICABLE      unavailable, or a report surfaces findings)
+with reason)                  │
+   │                          ▼
+   │                Report status/findings to the human;
+   │                apply existing remediation/escalation:
+   │                  - a finding the human wants fixed before
+   │                    release routes to `developer` and back
+   │                    through the Targeted Revalidation
+   │                    Principle (Section 9) and iteration-limit
+   │                    discipline (Section 9A), then only the
+   │                    affected checklist(s) re-run
+   │                  - an activity that cannot run at all
+   │                    (missing upstream artifact) is reported
+   │                    the same way a BLOCKED prerequisite is
+   │                    reported elsewhere (Section 13A, 17A)
+   │                          │
+   └──────────────┬───────────┘
+                  ▼
+        Gate 4 only once Release Readiness (Section 9C) and every
+        applicable Pre-Release Assurance activity has reached a
+        completed status, is NOT_APPLICABLE, or the human explicitly
+        accepts a documented exception
+```
+
+A finding in a Design or Security Checklist report is evidence, not an automatic block — it is surfaced as part of the Release Evidence Package (Section 9B) and left to the human at Gate 4, exactly as existing QA/Code Review/Security findings already are at the work-item level (Section 8/9). If the human wants the underlying issue fixed before releasing, that fix is routed exactly as any other quality-stage finding (Section 9) — to the responsible specialist, through the existing targeted revalidation and iteration-limit discipline (Sections 9, 9A) — not through a new process.
+
+If Pre-Release Assurance is interrupted (session interruption, tool failure, human pause), it is governed by the same Execution Session / Resume Protocol machinery already in place (Sections 6D, 17A) — no new session model is introduced:
+
+* a completed Design or Security Report remains a discoverable artifact (Section 12) and is never regenerated on resume;
+* an activity that had not yet completed is identified as outstanding from the `release_scope` record (below) and resumed, not restarted, unless its underlying upstream artifact changed since;
+* Gate 4 is not reached until every applicable activity reports a completed status, `NOT_APPLICABLE`, or an explicitly human-accepted exception, per the Completion Rule above.
+
+## Persistence
+
+Extend the `release_scope` record (Section 9C) with this Release Scope's Pre-Release Assurance status:
+
+```yaml
+pre_release_assurance:
+  design_checklist:    NOT_APPLICABLE | PENDING | IN_PROGRESS | COMPLETE
+  design_report_ref:   <path, once produced>
+  security_checklist:  NOT_APPLICABLE | PENDING | IN_PROGRESS | COMPLETE
+  security_report_ref: <path, once produced>
+```
+
+This is deliberately minimal, mirroring the existing `release_scope` block's own minimalism (Section 9C) — enough to answer, on resume, what ran, what remains outstanding, and where each report lives.
+
+## Boundaries
+
+The Orchestrator does not define how `design-checklist` or `security-checklist` perform their internal checks, structure their checklists, or determine findings — that is owned entirely by each agent's own definition. The Orchestrator's responsibility ends at: determining applicability, invoking each agent when applicable, persisting/referencing its report, and making that report available as part of the Gate 4 Release Evidence Package (Section 9B).
 
 ---
 
@@ -1590,7 +1809,9 @@ Developer
 QA
   ├── implemented code
   ├── requirements
-  └── relevant test context
+  ├── relevant test context
+  └── test case artifact (Section 3B), if produced — how QA consumes it
+      is defined in the QA Agent's own definition, not here
 
 Security
   ├── implemented code
@@ -1795,12 +2016,15 @@ Route work based on responsibility.
 Requirements      → requirements-agent
 PRD Review        → prd-review-agent   (optional, opt-in — Section 2)
 Planning          → planning-agent
+Test Case Prep    → testcase-preparation  (Planning stage — Section 3B)
 Design            → web-design-agent   (optional, parallel to Planning — Section 3A)
 Architecture      → architect
 Implementation    → developer
 Testing           → qa-engineer
 Code Quality      → code-reviewer
 Security          → security-reviewer
+Design Checklist  → design-checklist      (Pre-Release Assurance — Section 9D)
+Security Checklist → security-checklist   (Pre-Release Assurance — Section 9D)
 Release           → release-agent
 ```
 
@@ -1837,7 +2061,7 @@ timestamp,agent,model,tokens_in,tokens_out,total_tokens,cost_usd,telemetry_type,
 | Column | Example | Notes |
 |--------|---------|-------|
 | `timestamp` | `2026-09-07T10:15:00` | ISO 8601 format (agent return time) |
-| `agent` | `developer` | Agent name (requirements, planning, architect, developer, qa-engineer, code-reviewer, security-reviewer, release-agent) |
+| `agent` | `developer` | Agent name (requirements, planning, testcase-preparation, architect, developer, qa-engineer, code-reviewer, security-reviewer, design-checklist, security-checklist, release-agent) |
 | `model` | `sonnet` | Model used (sonnet, haiku, opus) |
 | `tokens_in` | `3500` | Tokens consumed (context + prompt) |
 | `tokens_out` | `2100` | Tokens generated |
@@ -2028,11 +2252,24 @@ and EPIC-B" / "Execute the next 5 eligible items"
 last batch" / "Cut version 1.2"
      → Release initiation (Section 9C): determine or request the Release
        Scope, validate its coherence, run Release Readiness validation,
-       and proceed to Gate 4 / the Release Agent (Section 10) only if
-       readiness passes and the human approves. This is a separate,
-       explicitly human-initiated path — it does not select or continue
-       Execution Mode work-item selection (Section 6A), and no execution
-       completion above ever triggers it on its own.
+       then Pre-Release Assurance (Section 9D), and proceed to Gate 4 /
+       the Release Agent (Section 10) only if readiness and applicable
+       assurance activities complete and the human approves. This is a
+       separate, explicitly human-initiated path — it does not select or
+       continue Execution Mode work-item selection (Section 6A), and no
+       execution completion above ever triggers it on its own.
+
+"Run test case preparation for STORY-002" / "Prepare test cases for this
+backlog"
+     → SELECTIVE intermediate-stage request (Section 3B): validate the
+       Planning-stage prerequisites below, then run `testcase-preparation`
+       or explain what's missing.
+
+"Run the design checklist for this release" / "Run the security checklist
+for the current release scope"
+     → SELECTIVE intermediate-stage request (Section 9D): validate the
+       Pre-Release Assurance prerequisites below, then run the named
+       checklist agent or explain what's missing.
 ```
 
 Use the project's existing conversational routing (no new command syntax is introduced) — match the named work item against the tracker (Section 12A).
@@ -2123,6 +2360,11 @@ Important rules:
 Never execute a requested stage blindly. For each stage, check before running it:
 
 ```text
+TEST_CASE_PREPARATION (Planning stage — Section 3B)
+  - Requirements/PRD = APPROVED (Gate 1)
+  - Planning Agent has produced its planning/backlog artifact for this
+    pass (stories/acceptance criteria available to trace against)
+
 DEVELOPMENT
   - work item exists in the tracker
   - work item is READY (not BLOCKED — see Section 13A)
@@ -2147,9 +2389,21 @@ SECURITY
     of running the review
   - no unresolved CHANGES_REQUESTED sits against the current code
 
+DESIGN_CHECKLIST / SECURITY_CHECKLIST (Pre-Release Assurance — Section 9D)
+  - a Release Scope has been explicitly initiated and selected (Section 9C)
+  - the Release Scope passed coherence validation (Section 9C)
+  - Release Readiness validation has reached an assessed state (Section 9C)
+    — Pre-Release Assurance does not require Gate 4 to already be reached
+  - the relevant upstream artifact exists for the requested checklist
+    (approved design artifact for DESIGN_CHECKLIST; approved requirements/
+    architecture for SECURITY_CHECKLIST) — otherwise report the activity
+    as not applicable rather than running it
+
 RELEASE
   - a Release Scope has been explicitly initiated and selected (Section 9C)
   - the Release Scope passed coherence and readiness validation (Section 9C)
+  - applicable Pre-Release Assurance activities have completed, are
+    NOT_APPLICABLE, or carry a human-accepted exception (Section 9D)
   - Section 10's existing prerequisites (Gate 4 = APPROVED) — unchanged
 ```
 
@@ -2347,7 +2601,7 @@ Agent Invocations:
 8
 ```
 
-Include the active Execution Mode and Execution Session id/status (Sections 6A, 6D) whenever work-item execution is in use — omit both only for runs that have not yet reached the Section 6A decision point. Include the Release Scope id/status (Section 9C) whenever a release has been initiated, in progress or otherwise unresolved — omit it when no release has been initiated.
+Include the active Execution Mode and Execution Session id/status (Sections 6A, 6D) whenever work-item execution is in use — omit both only for runs that have not yet reached the Section 6A decision point. Include the Release Scope id/status (Section 9C) whenever a release has been initiated, in progress or otherwise unresolved — omit it when no release has been initiated. Once a release has been initiated, also include the Pre-Release Assurance status (Section 9D) — Design Checklist and Security Checklist, each `NOT_APPLICABLE`/`PENDING`/`IN_PROGRESS`/`COMPLETE` — alongside the Release Scope.
 
 Keep state factual and artifact-backed.
 
@@ -2398,7 +2652,7 @@ Release        = COMPLETE
 Gate 5         = APPROVED
 ```
 
-`Gate 4` here is the project/release-level gate (Section 9B), reached via the aggregate validation summary applied to the Release Scope explicitly initiated and selected per Section 9C — not the per-item validation outcome of any single Story/Task (Section 9A). If any condition is missing, do not report the build as complete.
+`Gate 4` here is the project/release-level gate (Section 9B), reached via the Release Evidence Package (Section 9B) applied to the Release Scope explicitly initiated and selected per Section 9C — not the per-item validation outcome of any single Story/Task (Section 9A). Reaching Gate 4 also requires that applicable Pre-Release Assurance activities (Section 9D) have completed, are `NOT_APPLICABLE`, or carry a human-accepted exception. If any condition is missing, do not report the build as complete.
 
 For a work-item-scoped run (Section 2B/17A), the equivalent completion condition is that the selected work item's tracker status (Section 12A) is `COMPLETED` per the Completion Rule (Section 9A: Development complete and all required validations PASSED/NOT_REQUIRED). This does not imply the whole-project contract above is satisfied, and it is not Gate 4 — report only the specific work item as complete, not the build as a whole.
 
