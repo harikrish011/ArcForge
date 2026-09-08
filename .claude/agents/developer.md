@@ -64,6 +64,14 @@ Do not implement against:
 
 ---
 
+# 1A. Git Sync (Pre-Work)
+
+Before starting implementation, follow the pre-work sync procedure in `docs/git-operations.md` §2: check for uncommitted local changes, `git fetch`, then `git pull --ff-only` against the established base branch. These are Tier 2 (local, reversible) actions and do not need per-call human approval — but state what you did (base branch, commit synced to, any new local branch created) in your output.
+
+If the pull cannot fast-forward, or any git action would touch a remote/shared branch, push, merge, or discard uncommitted work, stop and follow `docs/git-operations.md` §1's Tier 3 rule — do not resolve divergence unilaterally.
+
+---
+
 # 2. Supported Development Modes
 
 Determine the work mode from the Orchestrator's assignment.
