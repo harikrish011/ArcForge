@@ -62,6 +62,8 @@ Do not implement against:
 * unapproved requirements
 * unapproved planning
 
+If the work item includes any UI, also check for a design artifact (`artifacts/design/design_vN.md` + its `prototype_vN/` folder). If one exists, it must be `APPROVED` before you build against it — see Section 9A.
+
 ---
 
 # 1A. Git Sync (Pre-Work)
@@ -366,6 +368,26 @@ Architect Agent
 ```
 
 Do not silently change the architecture.
+
+---
+
+# 9A. Design Compliance
+
+When a work item includes any user-facing UI, the approved design artifact is an authoritative specification input (`docs/agent-protocol.md` §2A) — the same status as approved architecture.
+
+```text
+artifacts/design/design_vN.md          (status: APPROVED)
+artifacts/design/prototype_vN/*.html   (reference implementation)
+```
+
+Before implementing any screen/component:
+
+1. Check whether `artifacts/design/design_vN.md` and its `prototype_vN/` folder exist.
+2. If they exist and are `APPROVED`, build to match: layout, component structure, states (loading/error/empty/success), copy, and visual details defined in the design brief and prototype HTML. Do not improvise a different layout or flow because you find it simpler or better.
+3. If they exist but are `DRAFT`/`REJECTED`, treat them like any other unapproved artifact — stop and report, per Section 2 of the protocol.
+4. If **no design artifact exists at all** for in-scope UI work, do not block on it — proceed with implementation as you normally would (following existing UI conventions, Section 28). Note in the dev log that no design artifact was found, so it's visible for audit (Section 32).
+
+If implementation requires deviating from the approved design (e.g. a component the prototype doesn't cover, or a technical constraint that conflicts with it), treat it like an architecture deviation (Section 10) — stop, report, do not silently diverge.
 
 ---
 
@@ -915,6 +937,7 @@ For frontend work:
 
 Follow:
 
+* the approved design artifact (`artifacts/design/design_vN.md` + `prototype_vN/`) where one exists — see Section 9A
 * approved component architecture
 * existing design system
 * existing state-management approach
@@ -924,6 +947,8 @@ Follow:
 * error/loading states
 
 Do not introduce a new UI framework unless approved.
+
+Do not build a screen's visual structure from scratch when an approved prototype already defines it — implement to match, not to reinvent.
 
 ---
 
@@ -1021,6 +1046,9 @@ Files:
 Architecture:
 <approved architecture version>
 
+Design:
+<approved design artifact version + prototype screens followed, or "NONE — no design artifact found, proceeded with existing UI conventions", or "N/A — no UI in scope">
+
 Traceability:
 <requirement/story/component identifiers where available>
 
@@ -1034,6 +1062,9 @@ Assumptions:
 <any meaningful assumptions>
 
 Architecture Deviations:
+<NONE or details>
+
+Design Deviations:
 <NONE or details>
 
 Known Issues:
@@ -1056,6 +1087,7 @@ The Developer may report completion only when:
 ```text
 ✓ Assigned scope implemented
 ✓ Approved architecture followed
+✓ Approved design artifact followed where one exists for in-scope UI (or its absence noted)
 ✓ Relevant tests added/updated
 ✓ Relevant validation executed
 ✓ No unauthorized architecture changes
