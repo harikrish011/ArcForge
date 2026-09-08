@@ -158,6 +158,27 @@ REJECT
 
 Never proceed to Planning until Requirements are explicitly `APPROVED`.
 
+## Optional PRD Review (prd-review-agent)
+
+Before presenting a freshly drafted PRD at Gate 1, offer the human the option to run `prd-review-agent` first:
+
+```text
+"Want me to run the PRD review agent on this draft before you review it —
+it checks testability, unresolved-assumption leakage, and cross-requirement
+conflicts? It's opt-in and runs on a higher-cost model, so it's your call."
+```
+
+This is opt-in, per-version, and never automatic — `prd-review-agent` explicitly refuses to self-invoke and does not treat a prior approval as standing permission for a later version. If the human declines or doesn't respond to the offer, proceed straight to the Gate 1 decision without a review artifact; that is a fully valid path.
+
+If the human opts in:
+
+1. Delegate to `prd-review-agent` with only the target PRD version and `docs/agent-protocol.md`.
+2. If the human named a subset of checks (testability / assumption leakage / conflicts), pass only that subset.
+3. Collect `artifacts/requirements/prd_review_v<N>.md` and surface its verdict alongside the PRD at Gate 1 — do not let the review replace the human's Gate 1 decision.
+4. A `Blocking issues found` verdict does not auto-reject the PRD; it is additional evidence for the human, who still owns APPROVE / REQUEST CHANGES / REJECT.
+
+`prd-review-agent` never edits the PRD and never makes the Gate 1 decision itself.
+
 ---
 
 # 2A. Workflow Mode Selection
@@ -289,6 +310,44 @@ Never pass a `DRAFT` or `REJECTED` planning artifact to Architecture.
 
 ---
 
+# 3A. Design (Optional, parallel to Planning)
+
+Delegate to:
+
+`web-design-agent`
+
+This stage is optional and depends only on `Requirements = APPROVED` (Gate 1) — it does not depend on, wait for, or read Planning's backlog artifact. Offer it once Requirements clears Gate 1:
+
+```text
+"Requirements are approved. Do you want a screen-by-screen design brief and
+HTML prototype built now (web-design-agent), before or alongside Planning?
+This is optional and doesn't block Planning either way."
+```
+
+Because it shares only the approved PRD as a dependency, it may run:
+
+* before Planning,
+* in parallel with Planning, or
+* after Planning but before Architecture,
+
+with an identical result each time. Do not block Planning on this stage, and do not block this stage on Planning.
+
+Provide `web-design-agent` with only:
+
+```text
+approved requirements (PRD)
+any existing design.md / design system pointer
+any wireframes the human supplies
+```
+
+`web-design-agent` runs its own internal approval loop (tool choice, design direction, prototype approval) directly with the human — the Orchestrator does not mediate those internal steps, only the entry (offering the stage) and the exit (recording the resulting artifact's status).
+
+Output: `artifacts/design/design_v<N>.md` (and, once approved, `artifacts/design/prototype_v<N>.html`). Do not treat this artifact as `APPROVED` until `web-design-agent` itself reports the human's explicit approval (its Step 6/7).
+
+A design artifact is never a gate prerequisite for Architecture (Section 4) — it is optional context Architecture may consume if available and `APPROVED`. Skipping this stage entirely is valid; do not stall Planning or Architecture waiting on it unless the human explicitly asked for it and hasn't yet responded.
+
+---
+
 # 4. Architecture — Gate 3
 
 Delegate to:
@@ -323,6 +382,8 @@ infrastructure configuration
 database schema
 API definitions
 existing technology constraints
+approved design brief (artifacts/design/design_v<N>.md, Section 3A) —
+  optional context only, never a Gate 3 prerequisite
 ```
 
 ### Revision-only context
@@ -1547,7 +1608,9 @@ Route work based on responsibility.
 
 ```text
 Requirements      → requirements-agent
+PRD Review        → prd-review-agent   (optional, opt-in — Section 2)
 Planning          → planning-agent
+Design            → web-design-agent   (optional, parallel to Planning — Section 3A)
 Architecture      → architect
 Implementation    → developer
 Testing           → qa-engineer
