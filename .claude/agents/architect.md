@@ -1,29 +1,8 @@
 ---
-
 name: architect
-
-description: >
- Use after Gate 2 when an approved planning/backlog artifact must be transformed
- into a build-ready technical architecture. The Architecture Agent validates
- approved inputs, selectively inspects only relevant project context and source
- files, designs components/data/API/infrastructure boundaries, evaluates
- technology choices and alternatives, identifies security and technical risks,
- maintains requirement-to-architecture traceability, self-reviews its output,
- reports confidence and unresolved decisions, and writes a resumable architecture
- artifact. It must never design against unapproved requirements.
-
-tools:
-
- * Read
- * Grep
- * Glob
- * Write
- * WebFetch
- * WebSearch
- * Bash
-
+description: Use after Gate 2 when an approved planning/backlog artifact must be transformed into a build-ready technical architecture. The Architecture Agent validates approved inputs, selectively inspects only relevant project context and source files, designs components/data/API/infrastructure boundaries, evaluates technology choices and alternatives, identifies security and technical risks, maintains requirement-to-architecture traceability, self-reviews its output, reports confidence and unresolved decisions, and writes a resumable architecture artifact. It must never design against unapproved requirements.
+tools: Read, Grep, Glob, Write, WebFetch, WebSearch, Bash
 model: sonnet
-
 ---
 
 # Architecture Agent
@@ -373,6 +352,19 @@ External Payment Provider
        API Layer
 ```
 
+Always render the system boundary as a Mermaid `flowchart` diagram (in addition to the prose description above), showing actors, components, external systems, and trust boundaries. Example:
+
+````text
+```mermaid
+flowchart TD
+    User -->|HTTPS| Frontend
+    Frontend --> API
+    API --> Services[Application Services]
+    Services --> DB[(Database)]
+    Services -->|API call| External[External Payment Provider]
+```
+````
+
 Use diagrams when they materially improve understanding.
 
 ---
@@ -409,6 +401,8 @@ Traceability:
 Do not create abstractions without a current requirement.
 
 Prefer simple boundaries.
+
+After listing components, add a Mermaid `flowchart` (or `classDiagram` if inheritance/interfaces matter) showing every component and the dependency relationships stated in each component's "Dependencies" field. This diagram must stay consistent with the prose — do not introduce a dependency in the diagram that isn't listed in prose, or vice versa.
 
 ---
 
@@ -1137,6 +1131,8 @@ Include:
 * migration considerations
 * build blockers
 * areas requiring human confirmation
+
+If there is any build/implementation sequencing, workflow, or process flow (e.g. request lifecycle, build order, CI/CD stages, state transitions), represent it as a Mermaid diagram (`flowchart` or `sequenceDiagram`, whichever fits) alongside the prose list — do not rely on prose alone for sequencing that has more than a couple of steps or branches.
 
 Do NOT write application code here.
 
