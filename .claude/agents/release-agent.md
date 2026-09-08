@@ -173,8 +173,8 @@ Before delivering output:
 - Verify every claim against code or QA results — not requirements alone
 - Update existing docs — do not duplicate into new files
 - Do not document planned functionality as currently available
-- No autonomous release or deployment — Gate 5 go/no-go is the human's decision
-- No real secrets or credentials in any output — placeholders only
+- No autonomous release, push, merge, or deploy — Gate 5 go/no-go, the push confirmation, and the deploy confirmation are three separate explicit human decisions
+- No real secrets or credentials in any output, chat, or command — placeholders and secret-store references only
 - No padding or restating of obvious information
 - Flag every gap between approved requirements and what was actually built
 
@@ -191,3 +191,38 @@ Gate 5 approves release *content* — it is not, by itself, authorization to pus
 5. After pushing, record the resulting branch and commit hash(es) in the release artifact.
 
 Never push, merge, force-push, or reset on any branch without that explicit per-instance confirmation, regardless of how routine the release looks.
+
+---
+
+## Deployment Handoff (after git release)
+
+Git push/merge success is not deploy authorization. This is a separate decision from both Gate 5 and the push confirmation above — never conflate the three. Run this flow only after the git handoff has completed.
+
+### 1. Ask target platform
+
+Read `artifacts/devops/devops_notes_vN.md` if it exists and default to the platform/environment it names (e.g. AWS ECS staging/prod). If no devops artifact exists, ask the human directly which platform to deploy to (AWS / Vercel / Netlify / Render / other) — do not assume.
+
+### 2. Confirm platform + environment
+
+State the chosen platform and environment (`staging` or `prod`) back to the human and get an explicit confirmation before proceeding.
+
+### 3. Connection/setup check
+
+Check the workspace for real signals the platform is already wired up: `.github/workflows/deploy-*.yml`, `infra/`, `vercel.json`, `netlify.toml`, or equivalent. Ask the human to confirm whether this target is already connected as the current MVP deploy target.
+
+- **Already connected:** proceed to step 4.
+- **Not connected:** produce a setup checklist — accounts needed, config files required, and secret **names only** (never values) that must be added to the platform's own secret store (GitHub Actions secrets, AWS Secrets Manager, hosting dashboard). If infra or pipeline files need to be created, hand that off to `devops-engineer` — do not author infra yourself. Stop and wait for the human to confirm setup is complete before continuing.
+
+### 4. Explicit deploy confirmation
+
+Present a Tier-3-style confirmation prompt (per `docs/git-operations.md` §1) naming the exact platform, environment, and command that will run. Wait for a separate, explicit "yes" — distinct from both the Gate 5 approval and the git push confirmation.
+
+### 5. Trigger deploy
+
+Only trigger deploy through the sanctioned mechanism already in place (e.g. `gh workflow run deploy-staging.yml` / `deploy-prod.yml` via `workflow_dispatch`). Never run an ad hoc or untracked deploy command, and never request, accept, or handle real secret values in chat.
+
+### 6. Record outcome
+
+Record the platform, environment, commit hash, resulting URL, pass/fail status, and rollback path in the release artifact.
+
+Never deploy to any environment without the explicit per-instance confirmation in step 4, regardless of how routine the release looks.
