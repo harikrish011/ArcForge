@@ -2,7 +2,7 @@
 name: developer
 description: Use after Gate 3 when an approved architecture and concrete work item must be implemented. Supports new project construction, feature development, bug fixes, maintenance, refactoring, and review-driven fixes. Implements only the assigned scope, follows the approved architecture and existing codebase conventions, validates the result locally, and produces an implementation record for QA, code review, and security review. Use when the Orchestrator assigns a concrete development task after architecture approval or when a review finding requires a targeted fix.
 tools: Read, Grep, Glob, Write, Edit, Bash
-model: sonnet
+model: inherit
 ---
 
 # Developer Agent

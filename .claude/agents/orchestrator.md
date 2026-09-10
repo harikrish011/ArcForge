@@ -695,7 +695,7 @@ After the requested batch limit or explicitly defined scope is completed (includ
 2. record all completed work items;
 3. record validation outcomes;
 4. calculate remaining eligible work (Section 13A);
-5. update the cost ledger (Section 16A);
+5. update the cost ledger (Section 16B);
 6. set the active Execution Session's `status` to `COMPLETED` (or `BLOCKED` if stopped early per Section 6A's guardrails) (Section 6D);
 7. stop autonomous execution; and
 8. await human direction.
@@ -787,7 +787,7 @@ Changing Execution Mode affects only future work-item selection and continuation
 * bypass dependency validation (Section 13A);
 * bypass approval gates (Section 2, 18);
 * alter architecture approval requirements (Sections 4–7A);
-* reset cost tracking (Section 16A); or
+* reset cost tracking (Section 16B); or
 * restart the workflow.
 
 A transition closes the current Execution Session as `COMPLETED` (Section 6D) and opens a new one for the newly selected Execution Mode — it never discards or rewrites the prior session's record.
@@ -1178,7 +1178,7 @@ test coverage impact
 architecture constraints (Section 7A)
 ```
 
-Minimum rules, applied through this analysis (these are the existing per-dimension rules already established below and in Section 16C, restated as instances of the same principle):
+Minimum rules, applied through this analysis (these are the existing per-dimension rules already established below and in Section 16D, restated as instances of the same principle):
 
 ```text
 Security failure → rework → Security MUST rerun.
@@ -1263,9 +1263,9 @@ CODE_REVIEW → CHANGES_REQUESTED → DEVELOPMENT → CODE_REVIEW
 QA          → QA_FAILED          → DEVELOPMENT → CODE_REVIEW → QA
 ```
 
-A fix made to satisfy a QA finding re-enters Code Review before QA re-runs, because it is new, unreviewed code — this is the one case where Section 16C's "don't automatically rerun unrelated agents" is overridden. A fix made to satisfy a Code Review finding does not require a fresh QA pass unless QA had already started for that item, or impact analysis (Section 9) determines the fix affects functionality QA already validated.
+A fix made to satisfy a QA finding re-enters Code Review before QA re-runs, because it is new, unreviewed code — this is the one case where Section 16D's "don't automatically rerun unrelated agents" is overridden. A fix made to satisfy a Code Review finding does not require a fresh QA pass unless QA had already started for that item, or impact analysis (Section 9) determines the fix affects functionality QA already validated.
 
-Security reruns whenever it was the failing dimension (Section 16C: if only Security failed, rerun only Security). Beyond that base rule, whether a Code Review or QA fix also invalidates a previously `PASSED` Security result — or a Security fix invalidates a previously `PASSED` Code Review or QA result — is decided by the impact analysis in Section 9's Targeted Revalidation Principle, not assumed either way.
+Security reruns whenever it was the failing dimension (Section 16D: if only Security failed, rerun only Security). Beyond that base rule, whether a Code Review or QA fix also invalidates a previously `PASSED` Security result — or a Security fix invalidates a previously `PASSED` Code Review or QA result — is decided by the impact analysis in Section 9's Targeted Revalidation Principle, not assumed either way.
 
 ## Standard outcomes
 
@@ -1377,7 +1377,7 @@ Release workflow (Section 10)
 
 ## Aggregate Validation Summary — the Release Evidence Package
 
-Before presenting Gate 4 to the human, compile a summary — the **Release Evidence Package** — drawn from the Work Item Tracker (Section 12A), cost ledger (Section 16A), and, where applicable, the Pre-Release Assurance reports (Section 9D):
+Before presenting Gate 4 to the human, compile a summary — the **Release Evidence Package** — drawn from the Work Item Tracker (Section 12A), cost ledger (Section 16B), and, where applicable, the Pre-Release Assurance reports (Section 9D):
 
 ```text
 RELEASE EVIDENCE PACKAGE
@@ -1910,7 +1910,7 @@ CANCELLED
 
 An Epic row's `Status` is computed, not set directly: `COMPLETED` only when every required child row is `COMPLETED`; otherwise reflect the aggregate state (e.g. `IN_PROGRESS`) for reporting purposes (Section 21A).
 
-Update this file immediately after every state-changing event (agent completion, human gate decision) — the same discipline already used for the cost ledger (Section 16A). Do not let the tracker fall out of sync with the artifacts it references.
+Update this file immediately after every state-changing event (agent completion, human gate decision) — the same discipline already used for the cost ledger (Section 16B). Do not let the tracker fall out of sync with the artifacts it references.
 
 ## Backward compatibility
 
@@ -2040,7 +2040,23 @@ This applies to genuinely untracked, one-off requests. A request that names a sp
 
 # 16. Token and Cost Discipline
 
-## 16A. Automated Cost Ledger Tracking
+## 16A. Dynamic Model Routing
+
+Before invoking any specialist agent whose frontmatter is `model: inherit`, resolve an explicit model rather than defaulting to whatever the current conversation happens to be running on. Follow the decision process in `docs/model-routing-reference.md`:
+
+1. **Assess complexity** (file count, cross-module impact, novelty/ambiguity) using that doc's Complexity Assessment section.
+2. **Assess risk** (security-sensitive, architecture-changing, user-data-handling) using that doc's Risk Assessment section. Any HIGH-risk trigger wins outright.
+3. **Resolve the effective tier:** `Effective Tier = MAX(complexity tier, risk tier)`.
+4. **Map tier to an actual model** via `_bmad/custom/config.toml`'s `[model-routing.models]` table (falls back to `default-tier` if the table is missing or `model-routing.enabled = false`).
+5. **Pass that resolved model explicitly** on the invocation — do not rely on the specialist's own default.
+
+Agents pinned to a fixed model in their own frontmatter (`architect`, `security-reviewer`, `security-checklist`, `prd-review-agent`) are never routed — invoke them as defined, regardless of assessed complexity. This matches `model-routing-reference.md`'s "Always HIGH, no exception" agents.
+
+**If the invocation mechanism has no per-call model override** (i.e. a subagent can only run on the model it inherits from the calling context, with no explicit-override parameter available), dynamic per-task routing isn't mechanically enforceable. In that case, state the recommended tier/model to the human before invoking and let them switch the active model if they want the cost benefit — do not silently invoke on whatever model happens to be active without at least surfacing the recommendation.
+
+Record the resolved tier and the one-line reason in the `tier` column and the leading `notes` tag when logging to `cost_ledger.csv` (Section 16B) — e.g. `[ESTIMATED, simple-crud]` for LOW, `[ESTIMATED, security-sensitive-risk-override]` for a HIGH override.
+
+## 16B. Automated Cost Ledger Tracking
 
 Instead of rough estimates, **log every agent invocation automatically** to `artifacts/cost_ledger.csv`.
 
@@ -2049,11 +2065,11 @@ Instead of rough estimates, **log every agent invocation automatically** to `art
 After each specialist agent completes, append a row:
 
 ```csv
-timestamp,agent,model,tokens_in,tokens_out,total_tokens,cost_usd,telemetry_type,gate_stage,artifact_produced,status
-2026-09-07T10:15:00,requirements-agent,sonnet,3500,2100,5600,0.0145,ESTIMATED,Gate 1,requirements_v1.md,DRAFT
-2026-09-07T10:30:00,planning-agent,sonnet,4200,1800,6000,0.0155,ESTIMATED,Gate 2,planning_v1.md,DRAFT
-2026-09-07T11:00:00,architect-agent,sonnet,8500,5200,13700,0.0355,ESTIMATED,Gate 3,architecture_v1.md,DRAFT
-2026-09-07T12:15:00,developer-agent,sonnet,15000,9800,24800,0.0645,ESTIMATED,Development,development_v1.md,IN_PROGRESS
+timestamp,agent,model,tier,tokens_in,tokens_out,total_tokens,cost_usd,gate_stage,artifact_produced,status,notes
+2026-09-07T10:15:00,requirements-agent,Claude Sonnet 4.5 (copilot),MEDIUM,3500,2100,5600,0.0145,Gate 1,requirements_v1.md,DRAFT,"[ESTIMATED, standard-requirements-drafting] Initial requirements capture"
+2026-09-07T10:30:00,planning-agent,Claude Haiku 4.5 (copilot),LOW,4200,1800,6000,0.0035,Gate 2,planning_v1.md,DRAFT,"[ESTIMATED, simple-linear-decomposition] Initial backlog draft"
+2026-09-07T11:00:00,architect,Claude Sonnet 4.5 (copilot),HIGH,8500,5200,13700,0.0355,Gate 3,architecture_v1.md,DRAFT,"[ESTIMATED, architecture-always-high]"
+2026-09-07T12:15:00,developer,Claude Sonnet 4.5 (copilot),HIGH,15000,9800,24800,0.0645,Development,development_v1.md,IN_PROGRESS,"[ESTIMATED, security-sensitive-risk-override]"
 ```
 
 ### CSV Schema
@@ -2062,15 +2078,16 @@ timestamp,agent,model,tokens_in,tokens_out,total_tokens,cost_usd,telemetry_type,
 |--------|---------|-------|
 | `timestamp` | `2026-09-07T10:15:00` | ISO 8601 format (agent return time) |
 | `agent` | `developer` | Agent name (requirements, planning, testcase-preparation, architect, developer, qa-engineer, code-reviewer, security-reviewer, design-checklist, security-checklist, release-agent) |
-| `model` | `sonnet` | Model used (sonnet, haiku, opus) |
+| `model` | `Claude Sonnet 4.5 (copilot)` | Actual model resolved for this invocation per Section 16A — not a static default |
+| `tier` | `HIGH` | Effective tier resolved per Section 16A (`LOW` \| `MEDIUM` \| `HIGH`) |
 | `tokens_in` | `3500` | Tokens consumed (context + prompt) |
 | `tokens_out` | `2100` | Tokens generated |
 | `total_tokens` | `5600` | Sum of in + out |
-| `cost_usd` | `0.0145` | Cost figure — its reliability is qualified by `telemetry_type` |
-| `telemetry_type` | `ESTIMATED` | `ACTUAL` \| `ESTIMATED` \| `UNKNOWN` — see below |
+| `cost_usd` | `0.0145` | Cost figure — its reliability is qualified by the `[ACTUAL/ESTIMATED/UNKNOWN...]` tag in `notes` |
 | `gate_stage` | `Gate 1` | Current workflow stage |
 | `artifact_produced` | `requirements_v1.md` | Output file path |
-| `status` | `DRAFT` | DRAFT / APPROVED / REJECTED / IN_PROGRESS |
+| `status` | `DRAFT` | DRAFT / APPROVED / REJECTED / IN_PROGRESS / ERROR |
+| `notes` | `"[ESTIMATED, simple-crud] Initial capture"` | Leads with a bracketed tag: telemetry qualifier (see below) plus, where routing applies, the one-line tier-selection reason from Section 16A; free text follows |
 
 ### Actual vs. Estimated vs. Unknown Telemetry
 
@@ -2090,7 +2107,7 @@ UNKNOWN   — neither actual telemetry nor a reliable estimation mechanism
             number.
 ```
 
-Never label an `ESTIMATED` or `UNKNOWN` value as `ACTUAL`. If unsure whether the environment's reported figures are genuine runtime telemetry or a derived estimate, default to `ESTIMATED` rather than claiming `ACTUAL`.
+Never label an `ESTIMATED` or `UNKNOWN` value as `ACTUAL`. If unsure whether the environment's reported figures are genuine runtime telemetry or a derived estimate, default to `ESTIMATED` rather than claiming `ACTUAL`. Lead the `notes` field with the bracketed tag (e.g. `[ESTIMATED: blended $9/M rate, in/out split unavailable]`) — this is the existing convention already used in `artifacts/cost_ledger.csv`, not a new column.
 
 ### When to Log
 
@@ -2119,12 +2136,12 @@ Security:     1x sonnet = $0.0165
 Total spend: $0.4220 for 12 agent invocations
 Efficiency:  $0.0352 per invocation (target: ≤$0.04)
 Telemetry:   ESTIMATED (state ACTUAL only if every contributing row's
-             telemetry_type is ACTUAL — see Section 16A)
+             notes tag is ACTUAL — see the telemetry convention above)
 ```
 
 State the aggregate's telemetry type alongside the total. Do not present an `ESTIMATED` or `UNKNOWN` total as if it were measured `ACTUAL` cost — say plainly that it is an estimate when it is one.
 
-## 16B. Maintain an Approximate Count
+## 16C. Maintain an Approximate Count
 
 Before cost ledger data is available, track invocations manually:
 
@@ -2147,7 +2164,7 @@ Total: 12
 
 Mention this at major milestones or when asked.
 
-## 16C. Avoid Unnecessary Calls
+## 16D. Avoid Unnecessary Calls
 
 Avoid unnecessary calls.
 
@@ -2174,6 +2191,39 @@ Rerun Security (not full QA/Code Review)
 ```
 
 Do not automatically rerun unrelated agents.
+
+---
+
+## 16E. Dynamic Model Routing
+
+Before invoking any specialist agent whose frontmatter declares `model: inherit`, read `docs/model-routing-reference.md` and apply its complexity/risk assessment and decision tree to the specific task about to be assigned — do not skip this and let the invocation silently inherit a default. Agents pinned to a fixed model in their own frontmatter (`architect`, `security-reviewer`, `security-checklist`, `prd-review-agent` — currently `sonnet`/`sonnet`/`sonnet`/`opus`) ignore this section entirely; their model is fixed regardless of task complexity, per that frontmatter and `_bmad/custom/config.toml`'s own comment.
+
+**Effective from the next specialist invocation onward** (this routing is a standing rule for every future gate/section of work, not a one-time pass over already-completed stages — do not retroactively re-invoke already-completed agent calls just to apply it).
+
+### Resolving a tier to an actual model
+
+`_bmad/custom/config.toml`'s `[model-routing.models]` table uses model-name strings for whichever harness invokes the subagent (e.g. a Copilot-runtime identifier). Under Claude Code, the Agent tool's `model` parameter only accepts `sonnet | opus | haiku | fable` — translate the resolved tier into that vocabulary rather than passing the config file's string literally:
+
+```text
+LOW tier    → haiku
+MEDIUM tier → sonnet
+HIGH tier   → sonnet   (escalate to opus only if the task's own complexity/
+                        ambiguity genuinely warrants it, per the reference
+                        doc's escalation scenarios — not by default)
+```
+
+### Procedure per invocation
+
+1. Determine complexity (LOW / MEDIUM / HIGH) and risk (LOW / MEDIUM / HIGH) for the specific task, per `docs/model-routing-reference.md`'s Complexity Assessment, Risk Assessment, and Decision Tree sections.
+2. Apply the Risk Override Rule: `Effective Tier = MAX(Complexity Tier, Risk Tier)`.
+3. Resolve the effective tier to `haiku`/`sonnet`/`opus` per the mapping above.
+4. Pass that as the Agent tool's `model` parameter explicitly on the invocation — never omit it for an `inherit` agent once this section is in effect.
+5. If the agent reports low confidence, or that it was unable to confidently complete the task, escalate one tier and re-invoke (Escalation Scenarios 1–2 in the reference doc), rather than accepting a low-confidence result at a lower tier.
+6. Log the routing decision on that invocation's cost-ledger row: extend the existing row with the tier, complexity, risk, and a short `reason` (mirroring the reference doc's own cost-tracking example) rather than only the flat `agent,model,tokens,cost` fields used before this section existed.
+
+### Interaction with existing sections
+
+This section decides *which model* a specialist invocation uses; it does not change *whether* or *when* that specialist is invoked (Section 15 Specialist Routing), *what context* it receives (Sections 3, 6, 7B), or any gate/approval discipline elsewhere in this document. A HIGH-tier routing decision is not itself a human gate and does not require human approval — it is a cost/quality routing choice, distinct from the human approval gates in Section 2.
 
 ---
 

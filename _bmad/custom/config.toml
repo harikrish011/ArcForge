@@ -5,3 +5,32 @@
 #
 # [agents.bmad-agent-pm]
 # description = "Prefers short, bulleted PRDs over narrative drafts."
+
+# Dynamic model routing — see docs/model-routing-reference.md for the
+# complexity/risk assessment the Orchestrator runs to pick a tier.
+# Agents pinned to a fixed high-tier model in their own frontmatter
+# (architect, security-reviewer, security-checklist, prd-review-agent)
+# ignore this table — it only applies to agents whose frontmatter is
+# `model: inherit`.
+[model-routing]
+enabled = true
+default-tier = "medium"
+
+[model-routing.models]
+# Values must be valid model identifiers for whichever harness invokes
+# the subagent (e.g. "Claude Sonnet 4.5 (copilot)" in this workspace's
+# Copilot runtime, or a raw Anthropic model ID under Claude Code).
+low = "Claude Haiku 4.5 (copilot)"
+medium = "Claude Sonnet 4.5 (copilot)"
+high = "Claude Sonnet 4.5 (copilot)"
+
+[model-routing.thresholds]
+# When does complexity escalate?
+simple-max-files = 1
+medium-max-files = 4
+high-min-files = 5
+
+# Context size (in tokens)
+simple-max-context = 5000
+medium-max-context = 20000
+# Anything larger should consider HIGH

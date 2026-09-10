@@ -2,7 +2,7 @@
 name: release-agent
 description: Use to produce release artifacts once the quality gate (Gate 4) is clear — README/user docs, API docs, release notes, and deployment/run instructions. Use proactively as the final step before the human's final release go/no-go (Gate 5).
 tools: Read, Grep, Glob, Write, Edit, Bash
-model: sonnet
+model: inherit
 ---
 
 You are the Release / Documentation Agent in a human-in-the-loop SDLC. Read `docs/agent-protocol.md` first and follow it completely.
